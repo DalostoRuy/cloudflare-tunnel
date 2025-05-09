@@ -2,31 +2,34 @@
 set -euo pipefail
 
 # install_cloudflared_repo.sh
-# Automatiza o download da chave GPG e adição do repositório Cloudflare Tunnel
+# Automatiza parte 2: adiciona chave e repositório Cloudflare Tunnel
 
-# 1. Detectar codinome da distro (buster, bullseye, bookworm, jammy, focal, etc.)
+# 1. Remove listas antigas (caso existam)
+echo "🗑  Removendo listas antigas, se existirem..."
+rm -f /etc/apt/sources.list.d/cloudflared.list
+
+# 2. Detectar codinome (buster, bullseye, bookworm, focal, jammy, etc.)
 if ! CODENAME=$(lsb_release -cs 2>/dev/null); then
-  echo "Erro: não foi possível detectar o codinome da distribuição."
+  echo "❌ Não foi possível detectar o codinome da distro."
   exit 1
 fi
+echo "🔎 Distro detectada: ${CODENAME}"
 
-# 2. Criar diretório de keyrings
-echo "Criando /usr/share/keyrings (se necessário)..."
-sudo install -d -m0755 /usr/share/keyrings
-
-# 3. Baixar chave GPG oficial
-echo "Baixando chave GPG do Cloudflare..."
+# 3. Preparar keyring
+echo "🔐 Criando diretório de keyrings e baixando chave GPG..."
+install -d -m0755 /usr/share/keyrings
 curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg \
-  | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null  # :contentReference[oaicite:0]{index=0}
+  | tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null  # formata OK na chegada de EOF :contentReference[oaicite:0]{index=0}
 
-# 4. Criar arquivo de repositório APT
-echo "Criando fonte APT em /etc/apt/sources.list.d/cloudflared.list..."
-REPO_LINE="deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared ${CODENAME} main"
-echo "${REPO_LINE}" | sudo tee /etc/apt/sources.list.d/cloudflared.list >/dev/null  # :contentReference[oaicite:1]{index=1}
+# 4. Gerar arquivo de repositório com here-doc
+echo "📋 Criando /etc/apt/sources.list.d/cloudflared.list..."
+tee /etc/apt/sources.list.d/cloudflared.list >/dev/null <<EOF
+deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared ${CODENAME} main
+EOF
 
-# 5. Atualizar e instalar
-echo "Atualizando APT e instalando cloudflared..."
-sudo apt-get update
-sudo apt-get install -y cloudflared
+# 5. Atualizar APT e instalar cloudflared
+echo "⬆️  Atualizando APT e instalando cloudflared..."
+apt-get update
+apt-get install -y cloudflared
 
-echo "✅ Repositório e pacote cloudflared instalados com sucesso!"
+echo "✅ Repositório configurado e cloudflared instalado com sucesso!"
